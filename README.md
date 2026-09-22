@@ -45,7 +45,7 @@ next increment. See `../notes/architecture.md` for the full planned surface.
 ## Deployment
 
 Push to `main` → GitHub builds a Debian-slim image and pushes it to GHCR → the
-home server's self-hosted runner pulls and recreates the stack (port **3050**,
+home server's self-hosted runner pulls and recreates the stack (port **3080**,
 public at `laya.yahia-lab.org`).
 
 Files:
@@ -58,4 +58,4 @@ Files:
 Server-side prerequisites (one-time): a self-hosted runner registered to this
 repo with labels `self-hosted,home-server`, `/opt/laya/` created and owned by
 `yahia` with a filled-in `.env`, and a Cloudflare tunnel route
-`laya.yahia-lab.org → 192.168.1.21:3050`. See `../notes/`.
+`laya.yahia-lab.org → 192.168.1.21:3080`. See `../notes/`.
