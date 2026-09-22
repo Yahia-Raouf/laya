@@ -12,6 +12,8 @@ const schema = z.object({
   ADMIN_PASSWORD: z.string().min(8),
   SESSION_SECRET: z.string().min(16),
   LAYA_CACHE: z.string().optional(),
+  // Dev/CI only: set to "1" to skip loading the ~1.7 GB model. /v1 returns 503.
+  LAYA_DISABLE_MODEL: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);

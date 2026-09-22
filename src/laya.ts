@@ -4,7 +4,7 @@ import { env } from "./env.js";
 // Laya is expensive to load (~1.7 GB weights, ~2 GB RAM) and slow on this CPU,
 // so we load exactly one instance for the whole process and reuse it.
 
-type ModelState = "loading" | "ready" | "error";
+type ModelState = "loading" | "ready" | "error" | "disabled";
 
 let state: ModelState = "loading";
 let lastError: string | null = null;
@@ -12,6 +12,11 @@ let instance: Awaited<ReturnType<typeof Laya.load>> | null = null;
 const startedAt = Date.now();
 
 async function init(): Promise<void> {
+  if (env.LAYA_DISABLE_MODEL === "1") {
+    state = "disabled";
+    console.log("laya model loading disabled (LAYA_DISABLE_MODEL=1)");
+    return;
+  }
   try {
     state = "loading";
     lastError = null;

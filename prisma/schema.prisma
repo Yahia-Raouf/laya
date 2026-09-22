@@ -37,10 +37,12 @@ model ApiKey {
 }
 
 /// One inference request, for the usage dashboard and request logs.
+/// apiKeyId is nullable + SetNull so logs survive after a key is deleted.
 model UsageEvent {
   id            String   @id @default(cuid())
-  apiKey        ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  apiKeyId      String
+  apiKey        ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  apiKeyId      String?
+  keyLabel      String? // denormalized so deleted-key logs stay readable
   ts            DateTime @default(now())
   endpoint      String
   questionTypes String[]

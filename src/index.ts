@@ -6,8 +6,13 @@ import { logger } from "hono/logger";
 import { env } from "./env.js";
 import { laya } from "./laya.js";
 import { disconnectDb } from "./db.js";
+import { seedAdmin } from "./auth/seed.js";
+import { inferenceRouter } from "./routes/inference.js";
+import { adminRouter } from "./routes/admin.js";
+import { authRouter } from "./routes/auth.js";
+import type { AppEnv } from "./types.js";
 
-const app = new Hono();
+const app = new Hono<AppEnv>();
 
 app.use("*", logger());
 
@@ -17,10 +22,10 @@ app.get("/health", (c) => c.json({ ok: true }));
 // Readiness/introspection: model load state, uptime, memory. Feeds the portal.
 app.get("/status", (c) => c.json(laya.getStatus()));
 
-// --- API routers mount here in the next increment ---
-// app.route("/v1", inferenceRouter);   // caller API key
-// app.route("/admin", adminRouter);    // master secret / portal session
-// app.route("/auth", authRouter);      // portal login
+// API routers
+app.route("/v1", inferenceRouter); // caller API key
+app.route("/admin", adminRouter); // master secret / portal session
+app.route("/auth", authRouter); // portal login
 
 // Static SPA (built to web/dist) with client-side routing fallback.
 // The portal isn't built yet in early increments, so fall back to a small
@@ -48,8 +53,10 @@ const server = serve(
   },
 );
 
-// Load the model in the background so the server is immediately live for
-// /health; /status reports progress until the model is ready.
+// Seed the admin user (idempotent), then load the model in the background so
+// the server is immediately live for /health; /status reports progress until
+// the model is ready.
+void seedAdmin().catch((e) => console.error("admin seed failed:", e));
 void laya.init();
 
 async function shutdown(signal: string) {
