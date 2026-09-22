@@ -11,25 +11,38 @@ let lastError: string | null = null;
 let instance: Awaited<ReturnType<typeof Laya.load>> | null = null;
 const startedAt = Date.now();
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function init(): Promise<void> {
   if (env.LAYA_DISABLE_MODEL === "1") {
     state = "disabled";
     console.log("laya model loading disabled (LAYA_DISABLE_MODEL=1)");
     return;
   }
-  try {
-    state = "loading";
-    lastError = null;
-    instance = await Laya.load({
-      executionProviders: ["cpu"],
-      ...(env.LAYA_CACHE ? { cacheDir: env.LAYA_CACHE } : {}),
-    });
-    state = "ready";
-    console.log("laya model ready");
-  } catch (err) {
-    state = "error";
-    lastError = err instanceof Error ? err.message : String(err);
-    console.error("laya model failed to load:", lastError);
+  // The weights download (~1.7 GB) is not resumable and the server's Wi-Fi can
+  // drop, so retry with backoff. A fully cached bundle skips the download, so
+  // retries are cheap once the files are on disk.
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      state = "loading";
+      lastError = null;
+      instance = await Laya.load({
+        executionProviders: ["cpu"],
+        ...(env.LAYA_CACHE ? { cacheDir: env.LAYA_CACHE } : {}),
+      });
+      state = "ready";
+      console.log(`laya model ready (attempt ${attempt})`);
+      return;
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.error(`laya load attempt ${attempt}/${maxAttempts} failed: ${lastError}`);
+      if (attempt < maxAttempts) {
+        await sleep(Math.min(60_000, 15_000 * attempt));
+      } else {
+        state = "error";
+      }
+    }
   }
 }
 

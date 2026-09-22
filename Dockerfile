@@ -1,5 +1,13 @@
 # syntax=docker/dockerfile:1
 
+# ---- web builder: build the React + Vite portal to static assets ----
+FROM node:20-bookworm AS webbuilder
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
 # ---- builder: full Debian image so native prebuilds resolve cleanly ----
 FROM node:20-bookworm AS builder
 WORKDIR /app
@@ -46,8 +54,7 @@ COPY --from=builder --chown=appuser:appuser /app/dist ./dist
 COPY --from=builder --chown=appuser:appuser /app/prisma ./prisma
 COPY --chown=appuser:appuser package.json ./
 COPY --chown=appuser:appuser docker-entrypoint.sh ./
-# NOTE: once the React portal exists, add:
-# COPY --from=webbuilder --chown=appuser:appuser /web/dist ./web/dist
+COPY --from=webbuilder --chown=appuser:appuser /web/dist ./web/dist
 
 USER appuser
 VOLUME ["/data/laya"]
