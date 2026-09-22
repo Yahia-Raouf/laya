@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Keys from "./pages/Keys";
+import Playground from "./pages/Playground";
 import Logs from "./pages/Logs";
 import Audit from "./pages/Audit";
 
@@ -29,6 +30,7 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="keys" element={<Keys />} />
+            <Route path="playground" element={<Playground />} />
             <Route path="logs" element={<Logs />} />
             <Route path="audit" element={<Audit />} />
           </Route>

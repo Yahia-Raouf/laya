@@ -1,0 +1,25 @@
+{
+  "name": "Laya Portal",
+  "short_name": "Laya",
+  "description": "Manage the Laya decision model and its API keys.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#e8f3f1",
+  "theme_color": "#10212b",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

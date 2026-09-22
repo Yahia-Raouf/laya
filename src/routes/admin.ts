@@ -5,6 +5,8 @@ import { prisma } from "../db.js";
 import { audit } from "../audit.js";
 import { requireAdmin } from "../auth/middleware.js";
 import { KEY_DEFAULTS, QUESTION_TYPES, generateApiKey } from "../auth/keys.js";
+import { laya } from "../laya.js";
+import { inferSchema } from "../validation.js";
 import type { AppEnv } from "../types.js";
 
 const DAY_MS = 86_400_000;
@@ -153,6 +155,29 @@ adminRouter.delete("/keys/:id", async (c) => {
     label: existing.label,
   });
   return c.json({ ok: true });
+});
+
+// --- playground: run inference via the admin session (no API key / quota) ---
+adminRouter.post("/inference", async (c) => {
+  const parsed = inferSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) {
+    return c.json({ error: "invalid body", details: parsed.error.flatten() }, 400);
+  }
+  const { state, questions } = parsed.data;
+  if (Object.keys(questions).length === 0) {
+    return c.json({ error: "at least one question is required" }, 400);
+  }
+  if (!laya.isReady()) {
+    return c.json({ error: "model not ready", status: laya.getStatus() }, 503);
+  }
+  try {
+    return c.json(await laya.systemOne(state, questions));
+  } catch (err) {
+    return c.json(
+      { error: "inference failed", message: err instanceof Error ? err.message : String(err) },
+      500,
+    );
+  }
 });
 
 // --- usage dashboard aggregates ---

@@ -1,25 +1,13 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { prisma } from "../db.js";
 import { laya } from "../laya.js";
 import { requireApiKey } from "../auth/middleware.js";
 import { checkRateLimit } from "../ratelimit.js";
-import { QUESTION_TYPES } from "../auth/keys.js";
+import { inferSchema } from "../validation.js";
 import type { AppEnv } from "../types.js";
 
 export const inferenceRouter = new Hono<AppEnv>();
 inferenceRouter.use("*", requireApiKey);
-
-const questionSchema = z.object({
-  type: z.enum(QUESTION_TYPES),
-  instructions: z.string(),
-  criteria: z.unknown(),
-});
-
-const inferSchema = z.object({
-  state: z.unknown(),
-  questions: z.record(z.string(), questionSchema),
-});
 
 inferenceRouter.post("/inference", async (c) => {
   const apiKey = c.get("apiKey")!;

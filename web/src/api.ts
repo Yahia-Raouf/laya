@@ -60,6 +60,23 @@ export type AuditEvent = {
   detail: unknown;
 };
 
+export type Answer =
+  | { type: "choice"; choice: string; probabilities: Record<string, number>; confidence: number }
+  | {
+      type: "score";
+      score: number;
+      legend: Record<string, string>;
+      probabilities: Record<string, number>;
+      confidence: number;
+    }
+  | { type: "noul"; noul: number };
+
+export type InferenceResult = {
+  model: string;
+  answers: Record<string, Answer>;
+  usage: { input_tokens: number; output_tokens: number };
+};
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -125,6 +142,16 @@ export const api = {
     req<ApiKey>(`/admin/keys/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteKey: (id: string) =>
     req<{ ok: boolean }>(`/admin/keys/${id}`, { method: "DELETE" }),
+
+  // playground: run via the admin session, or via a pasted API key (real /v1 path)
+  inferenceAdmin: (body: unknown) =>
+    req<InferenceResult>("/admin/inference", { method: "POST", body: JSON.stringify(body) }),
+  inferenceKey: (body: unknown, key: string) =>
+    req<InferenceResult>("/v1/inference", {
+      method: "POST",
+      headers: { authorization: `Bearer ${key}` },
+      body: JSON.stringify(body),
+    }),
 
   usage: () => req<UsageSummary>("/admin/usage"),
   logs: (cursor?: string) =>

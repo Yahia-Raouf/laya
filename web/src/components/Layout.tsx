@@ -21,10 +21,10 @@ export default function Layout() {
             Dashboard
           </NavLink>
           <NavLink to="/keys">API Keys</NavLink>
+          <NavLink to="/playground">Playground</NavLink>
           <NavLink to="/logs">Request Logs</NavLink>
           <NavLink to="/audit">Audit Log</NavLink>
         </nav>
-        <div className="spacer" />
         <div className="userchip">
           <span className="muted small">{username}</span>
           <button className="btn ghost small" onClick={onLogout}>
