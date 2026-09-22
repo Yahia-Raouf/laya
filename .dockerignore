@@ -1,0 +1,12 @@
+.git
+node_modules
+dist
+web/node_modules
+web/dist
+.env
+.env.*
+*.log
+npm-debug.log*
+.DS_Store
+docker-compose*.yml
+deploy

@@ -1,0 +1,73 @@
+// Laya service data model. See ../../notes/architecture.md.
+
+generator client {
+  provider      = "prisma-client-js"
+  // "native" for local dev; the debian target is what the CI-built image runs on.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum KeyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// A caller API key for the inference endpoint.
+model ApiKey {
+  id              String       @id @default(cuid())
+  label           String
+  keyHash         String       @unique // sha256 of the full key
+  keyPrefix       String // e.g. "laya_ab12" for display/lookup
+  scopes          String[] // allowed question types: choice | score | noul
+  status          KeyStatus    @default(ACTIVE)
+  createdAt       DateTime     @default(now())
+  expiresAt       DateTime? // null = never expires
+  rateLimitPerMin Int          @default(20)
+  quotaTotal      Int? // null = unlimited
+  quotaUsed       Int          @default(0)
+  lastUsedAt      DateTime?
+  usageEvents     UsageEvent[]
+
+  @@index([keyPrefix])
+  @@index([status])
+}
+
+/// One inference request, for the usage dashboard and request logs.
+model UsageEvent {
+  id            String   @id @default(cuid())
+  apiKey        ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  apiKeyId      String
+  ts            DateTime @default(now())
+  endpoint      String
+  questionTypes String[]
+  inputTokens   Int?
+  latencyMs     Int?
+  statusCode    Int
+
+  @@index([apiKeyId, ts])
+  @@index([ts])
+}
+
+/// Admin actions (key created/deleted/deactivated/extended, logins, etc.).
+model AuditEvent {
+  id          String   @id @default(cuid())
+  ts          DateTime @default(now())
+  actor       String // "secret" | "portal:<username>"
+  action      String // e.g. "key.create", "key.deactivate", "key.extend"
+  targetKeyId String?
+  detail      Json?
+
+  @@index([ts])
+}
+
+/// Portal login accounts. Seeded from env on first boot.
+model AdminUser {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}

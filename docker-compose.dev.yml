@@ -1,0 +1,20 @@
+# Local dev Postgres only (the app runs on the host via `npm run dev`).
+# Matches DATABASE_URL in .env.example.
+#   docker compose -f docker-compose.dev.yml up -d
+name: laya-dev
+
+services:
+  postgres:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: laya
+      POSTGRES_PASSWORD: laya
+      POSTGRES_DB: laya
+    ports:
+      - "5432:5432"
+    volumes:
+      - laya-dev-pg:/var/lib/postgresql/data
+
+volumes:
+  laya-dev-pg:

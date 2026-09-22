@@ -1,0 +1,104 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npm run typecheck
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: meta
+        # GHCR requires a lowercase repository path; github.repository keeps the
+        # owner's capitalisation, so fold it.
+        run: |
+          NAME="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')/app"
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          echo "image=${NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.name }}:latest
+            ${{ steps.meta.outputs.image }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: [self-hosted, home-server]
+    permissions:
+      contents: read
+      packages: read
+    env:
+      DEPLOY_DIR: /opt/laya
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Publish compose file and image tag
+        env:
+          IMAGE: ${{ needs.build.outputs.image }}
+        run: |
+          cp docker-compose.yml "$DEPLOY_DIR/docker-compose.yml"
+          # update only the IMAGE line; keep the secrets already in .env
+          touch "$DEPLOY_DIR/.env"
+          grep -v '^IMAGE=' "$DEPLOY_DIR/.env" > "$DEPLOY_DIR/.env.tmp" || true
+          echo "IMAGE=$IMAGE" >> "$DEPLOY_DIR/.env.tmp"
+          mv "$DEPLOY_DIR/.env.tmp" "$DEPLOY_DIR/.env"
+
+      - name: Deploy
+        working-directory: /opt/laya
+        run: |
+          docker compose pull
+          docker compose stop --timeout 30 || true
+          docker compose up -d --remove-orphans
+
+      - name: Wait for healthy
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3050/health > /dev/null; then
+              echo "service is healthy"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::service did not become healthy within ~2 minutes"
+          docker compose -f /opt/laya/docker-compose.yml logs --tail 80
+          exit 1
