@@ -8,28 +8,29 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
-# ---- builder: full Debian image so native prebuilds resolve cleanly ----
-FROM node:20-bookworm AS builder
+# ---- deps: production node_modules + generated Prisma client ----
+# Depends ONLY on package files + schema, never on src. This keeps the large
+# node_modules layer stable across code-only changes, so the server pulls just
+# the small dist layers on each deploy instead of re-downloading everything.
+FROM node:20-bookworm AS deps
 WORKDIR /app
-
-# build-essential/python are only needed if a native dep has no prebuilt binary;
-# cheap insurance in a stage that gets thrown away.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 make g++ \
  && rm -rf /var/lib/apt/lists/*
-
 COPY package.json package-lock.json ./
-RUN npm ci
-
+RUN npm ci --omit=dev
 COPY prisma ./prisma
 RUN npx prisma generate
 
+# ---- builder: compile TypeScript (needs dev deps). Only dist is taken. ----
+FROM node:20-bookworm AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY prisma ./prisma
 COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
-
-# drop dev deps for the runtime copy (prisma + client stay: they are deps)
-RUN npm prune --omit=dev
 
 # ---- runtime: slim Debian (glibc, NOT Alpine) ----
 FROM node:20-bookworm-slim AS runtime
@@ -43,15 +44,15 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # non-root user; create + chown the model cache dir BEFORE declaring the volume
-# so the fresh named volume is seeded with the right ownership
 RUN useradd --create-home --uid 10001 appuser \
  && mkdir -p /data/laya \
  && chown -R appuser:appuser /data
 
 WORKDIR /app
-COPY --from=builder --chown=appuser:appuser /app/node_modules ./node_modules
+# order matters for pull size: stable (deps) first, code-changing (dist) last
+COPY --from=deps --chown=appuser:appuser /app/node_modules ./node_modules
+COPY --from=deps --chown=appuser:appuser /app/prisma ./prisma
 COPY --from=builder --chown=appuser:appuser /app/dist ./dist
-COPY --from=builder --chown=appuser:appuser /app/prisma ./prisma
 COPY --chown=appuser:appuser package.json ./
 COPY --chown=appuser:appuser docker-entrypoint.sh ./
 COPY --from=webbuilder --chown=appuser:appuser /web/dist ./web/dist
