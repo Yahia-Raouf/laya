@@ -34,6 +34,29 @@ keys, and operate.
 - **CI/CD** — push to `main` → GitHub builds a Debian-slim image → pushes to
   GHCR → a self-hosted runner pulls and recreates the stack, health-gated.
 
+## Screenshots
+
+Build an inference request by snapping puzzle pieces into place — the `criteria`
+slot reshapes to match the chosen type:
+
+![Playground](docs/screenshots/playground.png)
+
+| Dashboard | API keys |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![API keys](docs/screenshots/api-keys.png) |
+
+<p align="center">
+  <img src="docs/screenshots/login.png" width="460" alt="Portal sign in" />
+</p>
+
+Responsive / installable PWA:
+
+<p align="center">
+  <img src="docs/screenshots/playground-mobile.png" width="260" alt="Playground on mobile" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/dashboard-mobile.png" width="260" alt="Dashboard on mobile" />
+</p>
+
 ## Architecture
 
 ```mermaid
